@@ -71,7 +71,8 @@ if [[ ! "$release_tag" =~ ^v?[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
 fi
 
 data_home="${XDG_DATA_HOME:-${HOME}/.local/share}"
-install_dir="${data_home}/xiaomi-power/${release_tag}"
+app_root="${data_home}/xiaomi-power"
+install_dir="${app_root}/${release_tag}"
 bin_dir="${HOME}/.local/bin"
 command_path="${bin_dir}/xiaomi-power"
 config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
@@ -104,7 +105,7 @@ prepare_python_setup() {
 	if [[ ! -x "${install_dir}/.venv/bin/python" ]]; then
 		python3 -m venv "${install_dir}/.venv"
 	fi
-	"${install_dir}/.venv/bin/python" -m pip install --quiet -r "${install_dir}/requirements.txt"
+	"${install_dir}/.venv/bin/python" -m pip install --quiet --no-cache-dir -r "${install_dir}/requirements.txt"
 	if [[ -t 0 ]]; then
 		python3 "${install_dir}/xiaomi_power.py" --setup-cloud-qr
 	elif [[ -r /dev/tty ]]; then
@@ -133,6 +134,14 @@ fi
 
 mkdir -p "$bin_dir"
 ln -sfn "${install_dir}/xiaomi-power" "$command_path"
+
+# Each tagged install includes its own QR-setup virtualenv. Keep only the
+# active version so repeated upgrades do not accumulate old binaries and venvs.
+shopt -s nullglob
+for previous_install in "${app_root}"/*; do
+	[[ "$previous_install" == "$install_dir" ]] && continue
+	rm -rf -- "$previous_install"
+done
 
 say '\n已安装：%s' '\nInstalled %s' "$command_path"
 if [[ ":${PATH}:" != *":${bin_dir}:"* ]]; then
