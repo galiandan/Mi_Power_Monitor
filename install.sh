@@ -76,6 +76,10 @@ bin_dir="${HOME}/.local/bin"
 command_path="${bin_dir}/xiaomi-power"
 config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
 config_path="${config_home}/xiaomi-power/config.json"
+if [[ -e "$command_path" && ! -L "$command_path" ]]; then
+	say '目标位置已有非符号链接文件，无法覆盖：%s' 'Cannot replace existing non-symlink: %s' "$command_path" >&2
+	exit 1
+fi
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT
 
@@ -128,10 +132,6 @@ else
 fi
 
 mkdir -p "$bin_dir"
-if [[ -e "$command_path" && ! -L "$command_path" ]]; then
-	say '目标位置已有非符号链接文件，无法覆盖：%s' 'Cannot replace existing non-symlink: %s' "$command_path" >&2
-	exit 1
-fi
 ln -sfn "${install_dir}/xiaomi-power" "$command_path"
 
 say '\n已安装：%s' '\nInstalled %s' "$command_path"
