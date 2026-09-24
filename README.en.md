@@ -14,6 +14,20 @@ The script downloads the matching Go build, verifies its SHA-256 checksum, guide
 
 You can inspect the [installer script](install.sh) first. If required system tools are missing, it prints the Arch Linux package command.
 
+Uninstall the Go command and installed files while keeping the config and token:
+
+You can inspect the [uninstaller script](uninstall.sh) first.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/uninstall.sh | bash
+```
+
+To also remove the config and token, add `--purge-config`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/uninstall.sh | bash -s -- --purge-config
+```
+
 ## Build from source
 
 Requires Go 1.25 or newer. The app uses [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio), a Go implementation of Xiaomi's local miIO transport with generic MIoT property reads. That library handles UDP framing, encryption, handshake, retries, and `(siid, piid)` addressing; this project calls its property API rather than reimplementing the wire protocol.

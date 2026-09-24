@@ -14,6 +14,20 @@ curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/ins
 
 可先查看[安装脚本](install.sh)。系统缺少必要工具时，脚本会提示 Arch Linux 安装命令。
 
+卸载 Go 程序和安装文件（保留配置与 token）：
+
+也可以先查看[卸载脚本](uninstall.sh)。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/uninstall.sh | bash
+```
+
+如需同时删除配置和 token，追加 `--purge-config`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/uninstall.sh | bash -s -- --purge-config
+```
+
 ## 从源码构建
 
 需要 Go 1.25 或更新版本。程序使用 [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio) 进行小米 miIO 局域网通信和通用 MIoT 属性读取。协议帧、加密、握手、重试及 `(SIID, PIID)` 属性寻址均由该库处理，本项目不自行实现底层协议。
