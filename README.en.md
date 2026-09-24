@@ -91,7 +91,7 @@ Machine-readable output is newline-delimited JSON. `--count` is useful for bound
 ./xiaomi-power --watch --json --interval 1s --count 30
 ```
 
-Each JSON line contains `model`, `power`, `unit`, and `available`. The watch process keeps the LAN client open and reuses it between reads. Press Ctrl+C to stop it.
+Each JSON line contains `model`, `power`, `unit`, and `available`. On read failure, `power` is `null` and an `error` field is included. The watch process keeps the LAN client open and reuses it between reads. Press Ctrl+C to stop it.
 
 ## MIoT property
 

@@ -49,6 +49,10 @@ release_tag="${release_data[0]}"
 archive_name="${release_data[1]}"
 archive_url="${release_data[2]}"
 checksums_url="${release_data[3]}"
+if [[ ! "$release_tag" =~ ^v?[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
+	printf 'Invalid release tag returned by GitHub.\n' >&2
+	exit 1
+fi
 
 data_home="${XDG_DATA_HOME:-${HOME}/.local/share}"
 install_dir="${data_home}/xiaomi-power/${release_tag}"
@@ -62,7 +66,12 @@ trap 'rm -rf "$temporary_dir"' EXIT
 printf 'Downloading Xiaomi Power Monitor %s (%s)...\n' "$release_tag" "$go_arch"
 curl -fsSL "$archive_url" -o "${temporary_dir}/${archive_name}"
 curl -fsSL "$checksums_url" -o "${temporary_dir}/SHA256SUMS"
-(cd "$temporary_dir" && sha256sum --ignore-missing -c SHA256SUMS)
+expected_checksum="$(awk -v filename="$archive_name" '$2 == filename { print $1; exit }' "${temporary_dir}/SHA256SUMS")"
+if [[ ! "$expected_checksum" =~ ^[[:xdigit:]]{64}$ ]]; then
+	printf 'No valid SHA-256 checksum found for %s.\n' "$archive_name" >&2
+	exit 1
+fi
+printf '%s  %s\n' "$expected_checksum" "$archive_name" | (cd "$temporary_dir" && sha256sum --check -)
 
 mkdir -p "$install_dir"
 tar -xzf "${temporary_dir}/${archive_name}" -C "$install_dir"

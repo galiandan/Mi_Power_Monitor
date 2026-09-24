@@ -63,6 +63,8 @@ func loadConfig(path string) (config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return cfg, fmt.Errorf("invalid JSON config: %w", err)
 	}
+	cfg.IP = strings.TrimSpace(cfg.IP)
+	cfg.Token = strings.TrimSpace(cfg.Token)
 	if cfg.Model != "" && cfg.Model != model {
 		return cfg, fmt.Errorf("config model must be %s", model)
 	}
@@ -82,7 +84,13 @@ func loadConfig(path string) (config, error) {
 func readPower(ctx context.Context, client *miio.Client) (float64, error) {
 	values, err := client.GetProperties(ctx, []miio.Property{{SIID: powerSIID, PIID: powerPIID}})
 	if err != nil {
-		return 0, fmt.Errorf("MIoT property read failed: %w", err)
+		if errors.Is(err, miio.ErrBadToken) {
+			return 0, errors.New("LAN request rejected; check the device token")
+		}
+		if errors.Is(err, miio.ErrTimeout) {
+			return 0, errors.New("LAN request timed out; check device IP, token, and network access")
+		}
+		return 0, errors.New("MIoT property read failed")
 	}
 	if len(values) != 1 || !values[0].OK() {
 		return 0, errors.New("MIoT property 11.2 is unavailable")
@@ -112,6 +120,15 @@ func printReading(asJSON bool, power float64, err error) {
 	fmt.Printf("Device: %s\nPower: %.1f W\n", model, power)
 }
 
+func startupFailure(asJSON bool, publicMessage, detail string) int {
+	if asJSON {
+		printReading(true, 0, errors.New(publicMessage))
+	} else {
+		fmt.Fprintln(os.Stderr, "xiaomi-power:", detail)
+	}
+	return 1
+}
+
 func run() int {
 	jsonMode := flag.Bool("json", false, "print newline-delimited JSON readings")
 	watch := flag.Bool("watch", false, "keep one process running and poll continuously")
@@ -134,31 +151,31 @@ func run() int {
 	path := configPath()
 	cfg, err := loadConfig(path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "xiaomi-power:", err)
-		return 1
+		return startupFailure(*jsonMode, "cannot load config", err.Error())
 	}
 	// Ensure credentials stay private, including configs copied from the Python setup.
 	if err := os.Chmod(path, 0o600); err != nil {
-		fmt.Fprintln(os.Stderr, "xiaomi-power: cannot secure config permissions")
-		return 1
+		return startupFailure(*jsonMode, "cannot secure config permissions", "cannot secure config file permissions")
 	}
 	if err := os.Chmod(filepath.Dir(path), 0o700); err != nil {
-		fmt.Fprintln(os.Stderr, "xiaomi-power: cannot secure config directory permissions")
-		return 1
+		return startupFailure(*jsonMode, "cannot secure config permissions", "cannot secure config directory permissions")
 	}
 
 	client, err := miio.New(cfg.IP, cfg.Token, miio.WithTimeout(time.Duration(cfg.Timeout)*time.Second), miio.WithRetries(1))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "xiaomi-power: cannot create LAN client:", err)
-		return 1
+		return startupFailure(*jsonMode, "cannot create LAN client", "cannot create LAN client: "+err.Error())
 	}
 	defer client.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := client.Handshake(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, "xiaomi-power: LAN handshake failed; check IP, token, and LAN access:", err)
-		return 1
+		return startupFailure(*jsonMode, "LAN handshake failed; check IP, token, and LAN access", "LAN handshake failed; check IP, token, and LAN access: "+err.Error())
+	}
+	var ticker *time.Ticker
+	if *watch {
+		ticker = time.NewTicker(*interval)
+		defer ticker.Stop()
 	}
 
 	readCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.Timeout)*time.Second)
@@ -172,22 +189,27 @@ func run() int {
 		return 0
 	}
 
+	hadReadError := readErr != nil
 	reads := 1
 	for *count == 0 || reads < *count {
 		select {
 		case <-ctx.Done():
 			return 0
-		case <-time.After(*interval):
+		case <-ticker.C:
 		}
 		readCtx, cancel = context.WithTimeout(ctx, time.Duration(cfg.Timeout)*time.Second)
 		power, readErr = readPower(readCtx, client)
 		cancel()
 		if readErr != nil {
+			hadReadError = true
 			// Refresh the device clock after transient packet loss or a long-running session.
 			_ = client.Handshake(ctx)
 		}
 		printReading(*jsonMode, power, readErr)
 		reads++
+	}
+	if hadReadError {
+		return 1
 	}
 	return 0
 }

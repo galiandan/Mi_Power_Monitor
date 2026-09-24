@@ -93,7 +93,7 @@ Power: 83.4 W
 ./xiaomi-power --watch --json --interval 1s --count 30
 ```
 
-每行 JSON 包含 `model`、`power`、`unit` 和 `available`。轮询过程中会复用同一个 LAN 连接；按 Ctrl+C 停止程序。
+每行 JSON 包含 `model`、`power`、`unit` 和 `available`；读取失败时 `power` 为 `null`，并附带 `error`。轮询过程中会复用同一个 LAN 连接；按 Ctrl+C 停止程序。
 
 ## MIoT 属性
 
