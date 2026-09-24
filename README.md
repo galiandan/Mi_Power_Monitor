@@ -10,7 +10,7 @@
 curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
 ```
 
-脚本会下载适合当前架构的 Go 二进制并校验 SHA-256，首次安装时引导扫码登录，然后将命令安装到 `~/.local/bin/xiaomi-power`。如果已有设备配置，会直接复用。Go 运行时不依赖 Python；Python 只在首次扫码时用于配置 token。
+脚本会下载适合当前架构的 Go 二进制并校验 SHA-256，首次安装时引导扫码登录，然后将命令安装到 `~/.local/bin/xiaomi-power`。如果已有设备配置，会直接复用。若米家账号下有多台插座，扫码后会列出候选设备供你按编号选择；不会输出 token。Go 运行时不依赖 Python；Python 只在首次扫码时用于配置 token。
 
 可先查看[安装脚本](install.sh)。系统缺少必要工具时，脚本会提示 Arch Linux 安装命令。
 
