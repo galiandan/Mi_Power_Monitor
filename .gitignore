@@ -18,3 +18,7 @@ config.json
 *.sqlite
 *.sqlite3
 *.db
+
+# Go build output
+/xiaomi-power
+/build/
