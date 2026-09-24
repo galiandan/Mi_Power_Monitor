@@ -18,9 +18,7 @@ You can also download Linux x86-64 or ARM64 builds from [Releases](https://githu
 
 ## First-time setup (Python)
 
-Use Python for initial login and device details; the Go backend reads power directly from the IP and token. Both use `~/.config/xiaomi-power/config.json`.
-
-For first-time QR login, install the helper dependencies and run:
+If `~/.config/xiaomi-power/config.json` already exists, skip this section. The Go backend only needs that config file and does not require Python. For first-time QR token setup, install the Python helper dependencies once:
 
 ```bash
 python -m venv .venv
@@ -28,7 +26,7 @@ python -m venv .venv
 python xiaomi_power.py --setup-cloud-qr
 ```
 
-Choose `q`, scan the QR code shown on the computer with Mi Home, and approve. The helper saves the plug's IP and token without printing the token. If QR login is unavailable, import a local database or Android backup with `python xiaomi_power.py --import-token-source /path/to/miio2.db` (or an `.ab` backup).
+Follow the prompt to scan and approve with Mi Home. The IP and token are saved automatically, and the token is never displayed. After setup, normal readings only need the Go program. You can also import a token from a local backup with `python xiaomi_power.py --import-token-source FILE`.
 
 Query firmware and device ID with:
 

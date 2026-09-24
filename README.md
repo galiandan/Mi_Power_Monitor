@@ -18,9 +18,7 @@ CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o xiaomi-power ./cmd/xiaomi-p
 
 ## 首次配置（Python）
 
-Python 只用于首次登录和查询设备信息；Go 后端直接使用 IP 和 token 读取功率。两者共用配置文件 `~/.config/xiaomi-power/config.json`。
-
-首次使用时运行二维码登录：
+如果 `~/.config/xiaomi-power/config.json` 已存在，可跳过本节。Go 后端只依赖这个配置文件，不需要 Python。首次扫码获取 token 时，Python 辅助程序需要安装一次依赖：
 
 ```bash
 python -m venv .venv
@@ -28,7 +26,7 @@ python -m venv .venv
 python xiaomi_power.py --setup-cloud-qr
 ```
 
-按提示选择 `q`，用米家 App 扫描电脑上显示的二维码并确认。程序会自动保存插座 IP 和 token，不会打印 token。没有 QR 登录条件时，也可以从本地备份导入：`python xiaomi_power.py --import-token-source /path/to/miio2.db`（或 Android `.ab` 备份）。
+按提示用米家 App 扫码并确认，IP 和 token 会自动保存，token 不会显示。完成后日常读取只需运行 Go 程序。也可用 `python xiaomi_power.py --import-token-source FILE` 从本地备份导入 token。
 
 查询固件版本和设备 ID：
 
