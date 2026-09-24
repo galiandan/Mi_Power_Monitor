@@ -12,15 +12,34 @@ CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o xiaomi-power ./cmd/xiaomi-p
 
 This produces a stripped, statically linked binary with no Python runtime dependency.
 
-## Credentials
+## Python setup and device details
 
-The Go command reads the same private config written by the Python QR setup helper at `~/.config/xiaomi-power/config.json` (or `$XDG_CONFIG_HOME/xiaomi-power/config.json`). To obtain the token with Mi Home QR login, install the Python helper dependencies and run:
+Python owns account login, token import, and device detail queries. The Go backend does not log in to Xiaomi Cloud and does not request firmware or device ID. Both programs use the private config at `~/.config/xiaomi-power/config.json` (or `$XDG_CONFIG_HOME/xiaomi-power/config.json`).
+
+Install the Python helper dependencies, then obtain a token through Mi Home QR login:
 
 ```bash
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 python xiaomi_power.py --setup-cloud-qr
 ```
+
+Choose `q`, open the local URL in a browser on this PC, scan the QR code with Mi Home on Android, and approve. The helper saves the matched plug's IP and token to the private config without printing the token. It also supports importing a local Mi Home database or Android backup:
+
+```bash
+python xiaomi_power.py --import-token-source /path/to/miio2.db
+# or
+python xiaomi_power.py --import-token-source /path/to/mi-home-backup.ab
+```
+
+Use Python when you need firmware/device ID details or its one-shot diagnostic read:
+
+```bash
+python xiaomi_power.py --info
+python xiaomi_power.py --json
+```
+
+`--info` prints the device IP, firmware, and ID; avoid sharing that output publicly because it can identify your device or network. Python's `--energy` option can query accumulated energy, but this property has not been verified as reliable on the tested plug. Voltage and current are not exposed by this model's power service.
 
 Or create the config manually, keeping its permissions restricted:
 
@@ -65,13 +84,9 @@ Each JSON line contains `model`, `power`, `unit`, and `available`. The watch pro
 
 ## MIoT property
 
-The [`cuco.plug.v3` MIoT specification](https://home.miot-spec.com/spec/cuco.plug.v3) defines service 11 (`power-consumption`), property 11.2 (`electric-power`, watts). The Go reader calls `GetProperties` for SIID 11 / PIID 2. Property 11.1 is accumulated energy in 0.01 kWh steps; voltage and current are not exposed in this service.
+The [`cuco.plug.v3` MIoT specification](https://home.miot-spec.com/spec/cuco.plug.v3) defines service 11 (`power-consumption`), property 11.2 (`electric-power`, watts). The Go reader calls `GetProperties` for SIID 11 / PIID 2. Property 11.1 is accumulated energy in 0.01 kWh steps.
 
 The token is a local credential granting device access. LAN reads use UDP port 54321. If they fail, check the IP, token, network reachability, and local access settings on the plug.
-
-## Python CLI
-
-`xiaomi_power.py` remains available for QR setup and as the earlier one-shot implementation. The Go reader reuses the same configuration file and is the recommended option for continuous polling.
 
 ## Validation
 
