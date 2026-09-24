@@ -4,7 +4,17 @@
 
 A small LAN reader for live power usage from Xiaomi/Mijia smart plug 3 (`cuco.plug.v3`). The Go command is designed to stay running with low overhead for polling clients such as a future KDE Plasma widget. It does not need Home Assistant or Xiaomi Cloud for readings.
 
-## Build
+## Quick install (Arch Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
+```
+
+The script downloads the matching Go build, verifies its SHA-256 checksum, guides QR login on first setup, and installs `~/.local/bin/xiaomi-power`. Existing device config is reused. Python is only needed during first-time token setup; the Go reader does not depend on Python at runtime.
+
+You can inspect the [installer script](install.sh) first. If required system tools are missing, it prints the Arch Linux package command.
+
+## Build from source
 
 Requires Go 1.25 or newer. The app uses [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio), a Go implementation of Xiaomi's local miIO transport with generic MIoT property reads. That library handles UDP framing, encryption, handshake, retries, and `(siid, piid)` addressing; this project calls its property API rather than reimplementing the wire protocol.
 
@@ -16,22 +26,14 @@ This produces a stripped, statically linked binary with no Python runtime depend
 
 You can also download Linux x86-64 or ARM64 builds from [Releases](https://github.com/galiandan/Mi_Power_Monitor/releases).
 
-## First-time setup (Python)
+## Optional Python device details
 
-If `~/.config/xiaomi-power/config.json` already exists, skip this section. The Go backend only needs that config file and does not require Python. For first-time QR token setup, install the Python helper dependencies once:
+The installer handles QR login and token setup on first run. To query firmware or device ID later, install the optional Python helper dependencies:
 
 ```bash
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-python xiaomi_power.py --setup-cloud-qr
-```
-
-Follow the prompt to scan and approve with Mi Home. The IP and token are saved automatically, and the token is never displayed. After setup, normal readings only need the Go program. You can also import a token from a local backup with `python xiaomi_power.py --import-token-source FILE`.
-
-Query firmware and device ID with:
-
-```bash
-python xiaomi_power.py --info
+.venv/bin/python xiaomi_power.py --info
 ```
 
 `--info` also prints the device IP, so check the output for private details before sharing it.

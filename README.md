@@ -4,7 +4,17 @@
 
 通过局域网读取米家智能插座 3（`cuco.plug.v3`）的实时功率。Go 程序适合长期运行，为 KDE Plasma 小部件等客户端提供低开销的轮询后端。读取功率不需要 Home Assistant 或小米云端。
 
-## 构建
+## 一键安装（Arch Linux）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
+```
+
+脚本会下载适合当前架构的 Go 二进制并校验 SHA-256，首次安装时引导扫码登录，然后将命令安装到 `~/.local/bin/xiaomi-power`。如果已有设备配置，会直接复用。Go 运行时不依赖 Python；Python 只在首次扫码时用于配置 token。
+
+可先查看[安装脚本](install.sh)。系统缺少必要工具时，脚本会提示 Arch Linux 安装命令。
+
+## 从源码构建
 
 需要 Go 1.25 或更新版本。程序使用 [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio) 进行小米 miIO 局域网通信和通用 MIoT 属性读取。协议帧、加密、握手、重试及 `(SIID, PIID)` 属性寻址均由该库处理，本项目不自行实现底层协议。
 
@@ -16,22 +26,14 @@ CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o xiaomi-power ./cmd/xiaomi-p
 
 也可以从 [Releases](https://github.com/galiandan/Mi_Power_Monitor/releases) 下载 Linux x86-64 或 ARM64 版本。
 
-## 首次配置（Python）
+## Python 设备详情（可选）
 
-如果 `~/.config/xiaomi-power/config.json` 已存在，可跳过本节。Go 后端只依赖这个配置文件，不需要 Python。首次扫码获取 token 时，Python 辅助程序需要安装一次依赖：
+安装脚本首次运行时会自动处理扫码和 token 配置。若之后要查询固件版本或设备 ID，可单独安装 Python 辅助依赖：
 
 ```bash
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-python xiaomi_power.py --setup-cloud-qr
-```
-
-按提示用米家 App 扫码并确认，IP 和 token 会自动保存，token 不会显示。完成后日常读取只需运行 Go 程序。也可用 `python xiaomi_power.py --import-token-source FILE` 从本地备份导入 token。
-
-查询固件版本和设备 ID：
-
-```bash
-python xiaomi_power.py --info
+.venv/bin/python xiaomi_power.py --info
 ```
 
 `--info` 会显示设备 IP、固件版本和设备 ID；分享前请检查是否包含私人信息。
