@@ -10,7 +10,7 @@ A small LAN reader for live power usage from Xiaomi/Mijia smart plug 3 (`cuco.pl
 curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
 ```
 
-The script downloads the matching Go build, verifies its SHA-256 checksum, guides QR login on first setup, and installs `~/.local/bin/xiaomi-power`. Existing device config is reused. If the Xiaomi account has multiple plugs, QR setup lists them for selection by number without printing tokens. Python is only needed during first-time token setup; the Go reader does not depend on Python at runtime.
+The script downloads the matching Go build, verifies its SHA-256 checksum, recommends QR sign-in on first setup, and installs `~/.local/bin/xiaomi-power`. It tries to open the local QR login page in the default browser and prints the URL for manual opening if needed; scan the QR code in the terminal with Mi Home on your phone and approve the sign-in. Existing device config is reused. If the Xiaomi account has multiple plugs, QR setup lists them for selection by number without printing tokens. Python is only needed during first-time token setup; the Go reader does not depend on Python at runtime.
 
 You can inspect the [installer script](install.sh) first. If required system tools are missing, it prints the Arch Linux package command.
 

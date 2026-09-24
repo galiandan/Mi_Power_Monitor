@@ -1,26 +1,42 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+supports_chinese() {
+	local charmap
+	charmap="$(locale charmap 2>/dev/null || true)"
+	[[ "$charmap" == UTF-8 || "$charmap" == UTF8 ]]
+}
+
+say() {
+	local chinese="$1" english="$2"
+	shift 2
+	if supports_chinese; then
+		printf "$chinese\n" "$@"
+	else
+		printf "$english\n" "$@"
+	fi
+}
+
 repo="galiandan/Mi_Power_Monitor"
 api_url="https://api.github.com/repos/${repo}/releases/latest"
 
 for command in curl python3 sha256sum tar; do
 	if ! command -v "$command" >/dev/null 2>&1; then
-		printf 'Missing required command: %s\n' "$command" >&2
-		printf 'On Arch Linux, install prerequisites with: sudo pacman -S --needed curl python tar coreutils\n' >&2
+		say '缺少必要命令：%s' 'Missing required command: %s' "$command" >&2
+		say 'Arch Linux 可运行以下命令安装依赖：sudo pacman -S --needed curl python tar coreutils' 'On Arch Linux, install prerequisites with: sudo pacman -S --needed curl python tar coreutils' >&2
 		exit 1
 	fi
 done
 
 if [[ "$(uname -s)" != Linux ]]; then
-	printf 'This installer currently supports Linux only.\n' >&2
+	say '此安装程序目前仅支持 Linux。' 'This installer currently supports Linux only.' >&2
 	exit 1
 fi
 
 case "$(uname -m)" in
 	x86_64|amd64) go_arch="amd64" ;;
 	aarch64|arm64) go_arch="arm64" ;;
-	*) printf 'Unsupported CPU architecture: %s\n' "$(uname -m)" >&2; exit 1 ;;
+	*) say '暂不支持此 CPU 架构：%s' 'Unsupported CPU architecture: %s' "$(uname -m)" >&2; exit 1 ;;
 esac
 
 release_info="$(python3 - "$api_url" "$go_arch" <<'PY'
@@ -50,7 +66,7 @@ archive_name="${release_data[1]}"
 archive_url="${release_data[2]}"
 checksums_url="${release_data[3]}"
 if [[ ! "$release_tag" =~ ^v?[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
-	printf 'Invalid release tag returned by GitHub.\n' >&2
+	say 'GitHub 返回的版本标签无效。' 'Invalid release tag returned by GitHub.' >&2
 	exit 1
 fi
 
@@ -63,12 +79,12 @@ config_path="${config_home}/xiaomi-power/config.json"
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT
 
-printf 'Downloading Xiaomi Power Monitor %s (%s)...\n' "$release_tag" "$go_arch"
+say '正在下载小米功耗监控器 %s（%s）……' 'Downloading Xiaomi Power Monitor %s (%s)...' "$release_tag" "$go_arch"
 curl -fsSL "$archive_url" -o "${temporary_dir}/${archive_name}"
 curl -fsSL "$checksums_url" -o "${temporary_dir}/SHA256SUMS"
 expected_checksum="$(awk -v filename="$archive_name" '$2 == filename { print $1; exit }' "${temporary_dir}/SHA256SUMS")"
 if [[ ! "$expected_checksum" =~ ^[[:xdigit:]]{64}$ ]]; then
-	printf 'No valid SHA-256 checksum found for %s.\n' "$archive_name" >&2
+	say '未找到 %s 对应的有效 SHA-256 校验值。' 'No valid SHA-256 checksum found for %s.' "$archive_name" >&2
 	exit 1
 fi
 printf '%s  %s\n' "$expected_checksum" "$archive_name" | (cd "$temporary_dir" && sha256sum --check -)
@@ -78,7 +94,7 @@ tar -xzf "${temporary_dir}/${archive_name}" -C "$install_dir"
 
 prepare_python_setup() {
 	if ! command -v git >/dev/null 2>&1; then
-		printf 'QR token setup needs git. On Arch Linux, install it with: sudo pacman -S --needed git\n' >&2
+		say '二维码配置需要 git。Arch Linux 可运行：sudo pacman -S --needed git' 'QR token setup needs git. On Arch Linux, install it with: sudo pacman -S --needed git' >&2
 		exit 1
 	fi
 	if [[ ! -x "${install_dir}/.venv/bin/python" ]]; then
@@ -90,33 +106,37 @@ prepare_python_setup() {
 	elif [[ -r /dev/tty ]]; then
 		python3 "${install_dir}/xiaomi_power.py" --setup-cloud-qr </dev/tty
 	else
-		printf 'QR setup needs an interactive terminal. Re-run install.sh from a terminal.\n' >&2
+		say '二维码配置需要交互式终端，请在终端中重新运行 install.sh。' 'QR setup needs an interactive terminal. Re-run install.sh from a terminal.' >&2
 		exit 1
 	fi
 }
 
 if [[ ! -s "$config_path" ]]; then
-	printf 'Starting one-time QR login to save the plug IP and token.\n'
+	say '首次配置：推荐使用米家二维码扫码登录，将插座 IP 和 token 安全保存在本机。' 'First-time setup: QR sign-in is recommended to save the plug IP and token securely on this computer.'
 	prepare_python_setup
 elif [[ -t 0 ]]; then
-	read -r -p 'A Xiaomi Power config already exists. Run QR login again? [y/N] ' answer
+	if supports_chinese; then
+		read -r -p '检测到已有配置，要重新进行二维码登录吗？[y/N] ' answer
+	else
+		read -r -p 'A Xiaomi Power config already exists. Run QR login again? [y/N] ' answer
+	fi
 	if [[ "$answer" =~ ^[Yy]$ ]]; then
 		prepare_python_setup
 	fi
 else
-	printf 'Using existing config: %s\n' "$config_path"
+	say '沿用已有配置：%s' 'Using existing config: %s' "$config_path"
 fi
 
 mkdir -p "$bin_dir"
 if [[ -e "$command_path" && ! -L "$command_path" ]]; then
-	printf 'Cannot replace existing non-symlink: %s\n' "$command_path" >&2
+	say '目标位置已有非符号链接文件，无法覆盖：%s' 'Cannot replace existing non-symlink: %s' "$command_path" >&2
 	exit 1
 fi
 ln -sfn "${install_dir}/xiaomi-power" "$command_path"
 
-printf '\nInstalled %s\n' "$command_path"
+say '\n已安装：%s' '\nInstalled %s' "$command_path"
 if [[ ":${PATH}:" != *":${bin_dir}:"* ]]; then
-	printf 'Add this directory to PATH if needed: %s\n' "$bin_dir"
+	say '如果命令无法运行，请将此目录加入 PATH：%s' 'Add this directory to PATH if needed: %s' "$bin_dir"
 fi
-printf 'Read power: xiaomi-power\n'
-printf 'Keep polling: xiaomi-power --watch\n'
+say '读取一次功耗：xiaomi-power' 'Read power once: xiaomi-power'
+say '持续读取功耗：xiaomi-power --watch' 'Keep polling: xiaomi-power --watch'
