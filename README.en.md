@@ -16,11 +16,11 @@ This produces a stripped, statically linked binary with no Python runtime depend
 
 You can also download Linux x86-64 or ARM64 builds from [Releases](https://github.com/galiandan/Mi_Power_Monitor/releases).
 
-## Python setup and device details
+## First-time setup (Python)
 
-Python owns account login, token import, and device detail queries. The Go backend does not log in to Xiaomi Cloud and does not request firmware or device ID. Both programs use the private config at `~/.config/xiaomi-power/config.json` (or `$XDG_CONFIG_HOME/xiaomi-power/config.json`).
+Use Python for initial login and device details; the Go backend reads power directly from the IP and token. Both use `~/.config/xiaomi-power/config.json`.
 
-Install the Python helper dependencies, then obtain a token through Mi Home QR login:
+For first-time QR login, install the helper dependencies and run:
 
 ```bash
 python -m venv .venv
@@ -28,24 +28,17 @@ python -m venv .venv
 python xiaomi_power.py --setup-cloud-qr
 ```
 
-Choose `q`, open the local URL in a browser on this PC, scan the QR code with Mi Home on Android, and approve. The helper saves the matched plug's IP and token to the private config without printing the token. It also supports importing a local Mi Home database or Android backup:
+Choose `q`, scan the QR code shown on the computer with Mi Home, and approve. The helper saves the plug's IP and token without printing the token. If QR login is unavailable, import a local database or Android backup with `python xiaomi_power.py --import-token-source /path/to/miio2.db` (or an `.ab` backup).
 
-```bash
-python xiaomi_power.py --import-token-source /path/to/miio2.db
-# or
-python xiaomi_power.py --import-token-source /path/to/mi-home-backup.ab
-```
-
-Use Python when you need firmware/device ID details or its one-shot diagnostic read:
+Query firmware and device ID with:
 
 ```bash
 python xiaomi_power.py --info
-python xiaomi_power.py --json
 ```
 
-`--info` prints the device IP, firmware, and ID; avoid sharing that output publicly because it can identify your device or network. Python's `--energy` option can query accumulated energy, but this property has not been verified as reliable on the tested plug. Voltage and current are not exposed by this model's power service.
+`--info` also prints the device IP, so check the output for private details before sharing it.
 
-Or create the config manually, keeping its permissions restricted:
+To create the config manually:
 
 ```bash
 install -d -m 700 ~/.config/xiaomi-power

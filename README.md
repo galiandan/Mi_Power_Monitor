@@ -16,11 +16,11 @@ CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o xiaomi-power ./cmd/xiaomi-p
 
 也可以从 [Releases](https://github.com/galiandan/Mi_Power_Monitor/releases) 下载 Linux x86-64 或 ARM64 版本。
 
-## 使用 Python 配置账号和设备信息
+## 首次配置（Python）
 
-Python 程序负责小米账号登录、导入设备 token 和查询设备详情。Go 后端不会登录小米云，也不会读取固件版本或设备 ID。两个程序共用私有配置文件：`~/.config/xiaomi-power/config.json`，或 `$XDG_CONFIG_HOME/xiaomi-power/config.json`。
+Python 只用于首次登录和查询设备信息；Go 后端直接使用 IP 和 token 读取功率。两者共用配置文件 `~/.config/xiaomi-power/config.json`。
 
-安装 Python 辅助程序依赖，然后使用米家 App 的二维码登录获取 token：
+首次使用时运行二维码登录：
 
 ```bash
 python -m venv .venv
@@ -28,28 +28,19 @@ python -m venv .venv
 python xiaomi_power.py --setup-cloud-qr
 ```
 
-在登录方式提示处输入 `q`，用电脑浏览器打开显示的本地链接，再用 Android 上的米家 App 扫码并确认。程序会找到对应插座，并把 IP 和 token 保存到私有配置文件，不会打印 token。
+按提示选择 `q`，用米家 App 扫描电脑上显示的二维码并确认。程序会自动保存插座 IP 和 token，不会打印 token。没有 QR 登录条件时，也可以从本地备份导入：`python xiaomi_power.py --import-token-source /path/to/miio2.db`（或 Android `.ab` 备份）。
 
-也可以从米家本地数据库或 Android 备份导入 token：
-
-```bash
-python xiaomi_power.py --import-token-source /path/to/miio2.db
-# 或
-python xiaomi_power.py --import-token-source /path/to/mi-home-backup.ab
-```
-
-需要固件版本、设备 ID 或单次诊断读数时，使用 Python 程序：
+查询固件版本和设备 ID：
 
 ```bash
 python xiaomi_power.py --info
-python xiaomi_power.py --json
 ```
 
-`--info` 会显示设备 IP、固件版本和设备 ID；这些信息可能暴露设备或网络特征，请勿公开分享。Python 的 `--energy` 可以查询累计用电量，但目前还没有验证该插座返回的累计电量是否可靠。此型号的该功率服务不提供电压和电流属性。
+`--info` 会显示设备 IP、固件版本和设备 ID；分享前请检查是否包含私人信息。
 
 ### 手动配置
 
-也可以手动创建配置文件，并限制其权限：
+如需手动配置：
 
 ```bash
 install -d -m 700 ~/.config/xiaomi-power
