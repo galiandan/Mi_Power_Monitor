@@ -1,22 +1,26 @@
-# Xiaomi Plug 3 Power Monitor
+简体中文 | [English](README.en.md)
 
-A small LAN reader for live power usage from Xiaomi/Mijia smart plug 3 (`cuco.plug.v3`). The Go command is designed to stay running with low overhead for polling clients such as a future KDE Plasma widget. It does not need Home Assistant or Xiaomi Cloud for readings.
+# 米家智能插座 3 功率读取器
 
-## Build
+通过局域网读取米家智能插座 3（`cuco.plug.v3`）的实时功率。Go 程序适合长期运行，为 KDE Plasma 小部件等客户端提供低开销的轮询后端。读取功率不需要 Home Assistant 或小米云端。
 
-Requires Go 1.25 or newer. The app uses [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio), a Go implementation of Xiaomi's local miIO transport with generic MIoT property reads. That library handles UDP framing, encryption, handshake, retries, and `(siid, piid)` addressing; this project calls its property API rather than reimplementing the wire protocol.
+## 构建
+
+需要 Go 1.25 或更新版本。程序使用 [`github.com/mberatsanli/miio`](https://github.com/mberatsanli/miio) 进行小米 miIO 局域网通信和通用 MIoT 属性读取。协议帧、加密、握手、重试及 `(SIID, PIID)` 属性寻址均由该库处理，本项目不自行实现底层协议。
 
 ```bash
 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o xiaomi-power ./cmd/xiaomi-power
 ```
 
-This produces a stripped, statically linked binary with no Python runtime dependency.
+这会生成精简的静态链接二进制，不需要 Python 运行环境。
 
-## Python setup and device details
+也可以从 [Releases](https://github.com/galiandan/Mi_Power_Monitor/releases) 下载 Linux x86-64 或 ARM64 版本。
 
-Python owns account login, token import, and device detail queries. The Go backend does not log in to Xiaomi Cloud and does not request firmware or device ID. Both programs use the private config at `~/.config/xiaomi-power/config.json` (or `$XDG_CONFIG_HOME/xiaomi-power/config.json`).
+## 使用 Python 配置账号和设备信息
 
-Install the Python helper dependencies, then obtain a token through Mi Home QR login:
+Python 程序负责小米账号登录、导入设备 token 和查询设备详情。Go 后端不会登录小米云，也不会读取固件版本或设备 ID。两个程序共用私有配置文件：`~/.config/xiaomi-power/config.json`，或 `$XDG_CONFIG_HOME/xiaomi-power/config.json`。
+
+安装 Python 辅助程序依赖，然后使用米家 App 的二维码登录获取 token：
 
 ```bash
 python -m venv .venv
@@ -24,24 +28,28 @@ python -m venv .venv
 python xiaomi_power.py --setup-cloud-qr
 ```
 
-Choose `q`, open the local URL in a browser on this PC, scan the QR code with Mi Home on Android, and approve. The helper saves the matched plug's IP and token to the private config without printing the token. It also supports importing a local Mi Home database or Android backup:
+在登录方式提示处输入 `q`，用电脑浏览器打开显示的本地链接，再用 Android 上的米家 App 扫码并确认。程序会找到对应插座，并把 IP 和 token 保存到私有配置文件，不会打印 token。
+
+也可以从米家本地数据库或 Android 备份导入 token：
 
 ```bash
 python xiaomi_power.py --import-token-source /path/to/miio2.db
-# or
+# 或
 python xiaomi_power.py --import-token-source /path/to/mi-home-backup.ab
 ```
 
-Use Python when you need firmware/device ID details or its one-shot diagnostic read:
+需要固件版本、设备 ID 或单次诊断读数时，使用 Python 程序：
 
 ```bash
 python xiaomi_power.py --info
 python xiaomi_power.py --json
 ```
 
-`--info` prints the device IP, firmware, and ID; avoid sharing that output publicly because it can identify your device or network. Python's `--energy` option can query accumulated energy, but this property has not been verified as reliable on the tested plug. Voltage and current are not exposed by this model's power service.
+`--info` 会显示设备 IP、固件版本和设备 ID；这些信息可能暴露设备或网络特征，请勿公开分享。Python 的 `--energy` 可以查询累计用电量，但目前还没有验证该插座返回的累计电量是否可靠。此型号的该功率服务不提供电压和电流属性。
 
-Or create the config manually, keeping its permissions restricted:
+### 手动配置
+
+也可以手动创建配置文件，并限制其权限：
 
 ```bash
 install -d -m 700 ~/.config/xiaomi-power
@@ -50,48 +58,48 @@ $EDITOR ~/.config/xiaomi-power/config.json
 chmod 600 ~/.config/xiaomi-power/config.json
 ```
 
-Replace the documentation-only IP, token, and optional device ID placeholders. Never commit the real `config.json`; `.gitignore` excludes it. The Go reader also resets the config directory/file modes to `700`/`600` before using the token.
+将示例中的文档专用 IP、token 和可选设备 ID 替换为插座的实际信息。不要提交真实的 `config.json`；`.gitignore` 已将其排除。Go 程序使用 token 前也会将配置目录和文件权限设为 `700` 和 `600`。
 
-## Run
+## 读取实时功率
 
-Build once, then read one value:
+编译一次后，读取一次功率：
 
 ```bash
 ./xiaomi-power
 ```
 
-Output:
+输出示例：
 
 ```text
 Device: cuco.plug.v3
 Power: 83.4 W
 ```
 
-Keep one process alive and poll once per second:
+保持单个进程运行并持续轮询：
 
 ```bash
 ./xiaomi-power --watch
 ```
 
-Machine-readable output is newline-delimited JSON. `--count` is useful for bounded checks; `--interval` changes the polling period:
+使用机器可读的逐行 JSON 输出。`--count` 可限制读取次数，`--interval` 可调整轮询间隔：
 
 ```bash
 ./xiaomi-power --json
 ./xiaomi-power --watch --json --interval 1s --count 30
 ```
 
-Each JSON line contains `model`, `power`, `unit`, and `available`. The watch process keeps the LAN client open and reuses it between reads. Press Ctrl+C to stop it.
+每行 JSON 包含 `model`、`power`、`unit` 和 `available`。轮询过程中会复用同一个 LAN 连接；按 Ctrl+C 停止程序。
 
-## MIoT property
+## MIoT 属性
 
-The [`cuco.plug.v3` MIoT specification](https://home.miot-spec.com/spec/cuco.plug.v3) defines service 11 (`power-consumption`), property 11.2 (`electric-power`, watts). The Go reader calls `GetProperties` for SIID 11 / PIID 2. Property 11.1 is accumulated energy in 0.01 kWh steps.
+[`cuco.plug.v3` MIoT 规格](https://home.miot-spec.com/spec/cuco.plug.v3)将服务 11 定义为 `power-consumption`，属性 11.2 为 `electric-power`，单位是瓦特。Go 程序通过 SIID 11 / PIID 2 读取此属性。属性 11.1 表示累计用电量，单位步长为 0.01 kWh。
 
-The token is a local credential granting device access. LAN reads use UDP port 54321. If they fail, check the IP, token, network reachability, and local access settings on the plug.
+设备 token 是允许访问插座的本地凭据。局域网读取使用 UDP 54321 端口。如果读取失败，请检查设备 IP、token、网络可达性和插座的局域网访问设置。
 
-## Validation
+## 验证情况
 
-The original Python reader was verified against hardware with 30 one-second reads and changing load. The Go reader has now completed 30 consecutive one-second LAN reads on the same plug with no failures. During that run it used about 11.7 MiB peak RSS on Arch Linux x86-64; actual usage depends on the Go runtime and system.
+原 Python 程序已在真实设备上完成 30 次、每秒一次的读取，并验证读数会随负载变化。Go 程序也已连续读取 30 次且无失败；在 Arch Linux x86-64 上，该次运行的峰值 RSS 约为 11.7 MiB。实际资源占用会随 Go 运行时和系统环境变化。
 
-## License
+## 许可证
 
-Licensed under the GNU General Public License, version 3 only. See [LICENSE](LICENSE). The Go MIoT transport is a separate MIT-licensed dependency.
+本项目仅按 GNU GPL 第 3 版授权，详见 [LICENSE](LICENSE)。Go MIoT 通信库是单独的 MIT 许可证依赖。
