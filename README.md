@@ -10,7 +10,9 @@
 curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
 ```
 
-脚本会下载适合当前架构的 Go 二进制并校验 SHA-256，首次安装时优先引导使用二维码登录，然后将命令安装到 `~/.local/bin/xiaomi-power`。脚本会尝试自动打开本机浏览器中的二维码登录页面，并同时显示网址；若浏览器没有弹出，可手动打开该网址，再用手机米家 App 扫描终端中的二维码并确认。如果已有设备配置，会直接复用。若米家账号下有多台插座，扫码后会列出候选设备供你按编号选择；不会输出 token。Go 运行时不依赖 Python；Python 只在首次扫码时用于配置 token。
+脚本会下载适合当前架构的 Go 二进制并校验 SHA-256，首次安装时优先引导使用二维码登录，然后将命令安装到 `~/.local/bin/xiaomi-power`。脚本会尝试自动打开本机浏览器中的二维码登录页面，并同时显示网址；若浏览器没有弹出，可手动打开该网址，再用手机米家 App 扫描终端中的二维码并确认。已有配置会先检查 JSON、设备型号、IP、32 位十六进制 token 和超时范围；有效配置会复用，无效配置会引导重新扫码。新配置写入临时文件并原子替换，扫码失败或写入失败时保留旧配置。若米家账号下有多台插座，扫码后会列出候选设备供你按编号选择；不会输出 token。Go 运行时不依赖 Python；Python 只在首次扫码时用于配置 token。
+
+安装器在独立版本目录中准备并启动新版本，成功切换后保留当前版和上一版。版本目录使用安装标记管理，升级不会清理应用目录中的未知文件；安装和卸载使用同一个用户级锁，避免同时切换文件。若配置校验、扫码、下载或解包失败，原有命令链接继续指向旧版本。
 
 可先查看[安装脚本](install.sh)。系统缺少必要工具时，脚本会提示 Arch Linux 安装命令。
 
@@ -63,7 +65,9 @@ $EDITOR ~/.config/xiaomi-power/config.json
 chmod 600 ~/.config/xiaomi-power/config.json
 ```
 
-将示例中的文档专用 IP、token 和可选设备 ID 替换为插座的实际信息。不要提交真实的 `config.json`；`.gitignore` 已将其排除。Go 程序使用 token 前也会将配置目录和文件权限设为 `700` 和 `600`。
+将示例中的文档专用 IP、token 和可选设备 ID 替换为插座的实际信息。不要提交真实的 `config.json`；`.gitignore` 已将其排除。Go 程序使用 token 前也会将配置目录和文件权限设为 `700` 和 `600`。占位 token 或非 IP 地址会被拒绝。
+
+导入 Android `.ab` 备份时采用顺序流式读取。为限制资源占用，输入备份最多 4 GiB、解包成员总量最多 8 GiB、成员数最多 100,000，米家 SQLite 数据库最多 256 MiB。
 
 ## 读取实时功率
 
@@ -93,7 +97,7 @@ Power: 83.4 W
 ./xiaomi-power --watch --json --interval 1s --count 30
 ```
 
-每行 JSON 包含 `model`、`power`、`unit` 和 `available`；读取失败时 `power` 为 `null`，并附带 `error`。轮询过程中会复用同一个 LAN 连接；按 Ctrl+C 停止程序。
+每行 JSON 包含 `model`、`power`、`unit` 和 `available`；成功时还包含 UTC `sampled_at`，读取失败时 `power` 为 `null` 并附带 `error`。轮询过程中会复用同一个 LAN 连接；按 Ctrl+C 停止程序。
 
 ## MIoT 属性
 
