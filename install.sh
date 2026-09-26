@@ -130,7 +130,7 @@ if [[ -L "$command_path" ]]; then
 	previous_command_link="$(readlink -- "$command_path" 2>/dev/null || true)"
 	existing_target="$(readlink -f -- "$command_path" 2>/dev/null || true)"
 	case "$existing_target" in
-		"${app_root}"/*) ;;
+		"${app_root}"/*|"${data_home}/mi-power-monitor/"*) ;;
 		*) say '目标链接不属于小米功耗监控器，拒绝覆盖：%s' 'Refusing to replace an unmanaged command link: %s' "$command_path" >&2; exit 1 ;;
 	esac
 fi

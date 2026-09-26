@@ -100,6 +100,10 @@ for legacy_dir in "${app_root}"/*; do
 		rmdir -- "$legacy_dir" 2>/dev/null || true
 	fi
 done
+if [[ "$purge_config" == true && -d "${data_home}/mi-power-monitor/versions" ]]; then
+    printf 'KDE backend still uses the shared config; keeping the token.\n'
+    purge_config=false
+fi
 if [[ "$purge_config" == true ]]; then
 	if [[ -e "$config_path" || -L "$config_path" ]]; then
 		if rm -f -- "$config_path"; then

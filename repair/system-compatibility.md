@@ -2,7 +2,7 @@
 
 日期：2026-09-26。后端基线 `584f3fd`；KDE 仓库基线 `2a229dd`。
 
-结论：未发现直接修改 SDDM、PAM、KWin、PowerDevil 或登录会话配置的代码，但发现系统权限和安装共存风险，不能确认当前版本“与系统组件没有任何冲突”。本文是审查记录，下列问题尚未修复。
+结论：未发现直接修改 SDDM、PAM、KWin、PowerDevil 或登录会话配置的代码，但发现系统权限和安装共存风险，不能确认当前版本“与系统组件没有任何冲突”。以下问题描述修复前基线；本轮修复状态与验证范围见文末。
 
 ## 本机验证与边界
 
@@ -85,3 +85,25 @@ CPU/GPU 开关和 totalOnly 只影响显示，采集器仍每轮执行 `nvidia-s
 3. 验证独立后端和 KDE 的两种安装顺序及卸载归属。
 4. 在插件实际安装的 Plasma 会话验证添加/移除、多实例、锁屏解锁、注销登录、休眠恢复；记录进程数、日志和 GPU runtime PM 状态。
 5. 完整 SDDM 重启或重启机器会结束当前会话，本轮未做。不能用当前未安装插件时的 SDDM 正常代替该项验收。
+
+
+## 修复记录（2026-09-26）
+
+- C01：移除对 `/run/lock`、`/etc/tmpfiles.d` 的模式设置；仅创建插件自己的 `/run/mi-power-monitor` 和固定读取程序目录。
+- C02：用 root 所有的 `/usr/local/libexec/mi-power-monitor/read-rapl` 代替 chmod 授权。它使用 `/usr/bin/python3 -I`，拒绝参数，只读取顶层 Package 的能量和范围。每个 UID 有独立 sudoers 授权，支持多用户。没有新增 systemd 服务，也不修改 sysfs 权限。依赖 sudo、visudo 和 `/usr/bin/python3`；sudoers.d 必须由系统 sudo 策略加载。
+- C03：旧记录缺失、归属不同或权限漂移时中止并保留现场，不猜测原值。快照完整且当前状态等于旧版设置时恢复；已恢复原值的条目可重试。新版卸载仅撤销该 UID 的授权，最后一位用户卸载时移除受管读取程序；其他用户授权保留。遇到旧记录不完整或管理员修改时，仍需管理员处理旧规则及快照，安装器会明确提示。
+- C04：安装器改用显式 `cat` 读取域名称；旧助手中的错误表达式随授权逻辑移除。
+- C05：KDE 命令改为 `mi-power-monitor-backend`，采集器优先调用自身版本目录中的 `xiaomi-power`。独立安装器允许迁移已知 KDE 旧别名；KDE 升级仅删除自己的旧别名。两套卸载器在另一套仍存在时保留共享配置。
+- C06：QML 将停用参数传递给采集器；关闭 CPU/GPU 或使用 totalOnly 后不启动对应任务。NVIDIA 显示设备的 runtime 状态不是 active 时跳过驱动查询。状态检查和实际查询之间仍有竞态，不能宣称所有驱动上都绝不唤醒 GPU。
+
+固定读取命令的 sudoers 设置只授权无参数调用，并使用 NOSETENV；成功调用日志、PAM session 和 credential 初始化仅对该命令关闭，避免周期性查询刷日志和反复建立会话。拒绝日志保留；没有修改 `/etc/pam.d` 或 SDDM。选项语义核对了本机 sudo 1.9.17p2 手册及 [sudo 官方手册源码](https://github.com/sudo-project/sudo/blob/main/docs/sudoers.man.in)。sudo 版本不支持设置时，visudo 校验失败，不发布无效规则。
+
+### 本轮验证
+
+- KDE Python 回归 27 项通过，包含原有 17 项及新增兼容性测试。
+- 新增覆盖：固定程序拒绝参数、只读 Package 计数器、忽略 PYTHONPATH、sudoers 语法、权限漂移保留与旧权限恢复、停用采集、GPU runtime 状态、QML 命令参数转发、已有独立后端时 KDE 安装与卸载的归属保护。
+- 安装测试使用临时 HOME/XDG、模拟 Go 和 KPackage/DBus 工具、空硬件目录；不代表真实 KPackage/驱动测试。
+- 另用临时 HOME 验证独立后端卸载 `--purge-config` 保留 KDE 所需共享配置。
+- 两仓库修改的 Shell 语法及 diff 空白检查通过。
+- qmllint 仍报告 Plasma 动态 configuration/i18n 与外部 ID 访问警告，未把该检查写成无警告通过。
+- 本轮未进行真实 sudo 授权安装、SDDM 重启、注销登录、休眠恢复、多账户系统集成或硬件 runtime PM 测试。27 项通过不能替代这些验收，也不意味着所有系统组合绝无冲突。
