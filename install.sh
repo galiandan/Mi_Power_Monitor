@@ -254,10 +254,30 @@ prepare_python_setup() {
 		say '二维码配置需要 git。Arch Linux 可运行：sudo pacman -S --needed git' 'QR token setup needs git. On Arch Linux, install it with: sudo pacman -S --needed git' >&2
 		return 1
 	fi
-	if [[ ! -x "${version_dir}/.venv/bin/python" ]]; then
-		python3 -m venv "${version_dir}/.venv"
-	fi
-	"${version_dir}/.venv/bin/python" -m pip install --quiet --no-cache-dir -r "${version_dir}/requirements.txt"
+    if ! command -v timeout >/dev/null 2>&1; then
+        say '缺少 timeout（coreutils），无法限制依赖安装时间。' 'Missing timeout (coreutils), required to bound dependency setup.' >&2
+        return 1
+    fi
+    if [[ ! -x "${version_dir}/.venv/bin/python" ]]; then
+        say '正在创建扫码所需的 Python 环境（最多 2 分钟）……' 'Creating the QR Python environment (up to 2 minutes)...'
+        if ! timeout --kill-after=5s 120s python3 -m venv "${version_dir}/.venv"; then
+            say 'Python 环境创建失败或超时，请检查 python3-venv/ensurepip 是否可用。' 'Python environment creation failed or timed out; check python3-venv/ensurepip.' >&2
+            return 1
+        fi
+    fi
+    say '正在下载扫码依赖（最多 5 分钟）；下方会显示进度，尚未进入扫码登录。' 'Downloading QR dependencies (up to 5 minutes); progress follows. QR login has not started yet.'
+    # QR extraction needs only these PyPI packages, not the Git-based python-miio
+    # dependency used by the optional legacy Python LAN/backup tools.
+    if ! timeout --kill-after=5s 300s "${version_dir}/.venv/bin/python" -m pip install \
+        --disable-pip-version-check --no-input --no-cache-dir --progress-bar off \
+        --timeout 15 --retries 2 \
+        'requests>=2.32,<3' 'pycryptodome>=3.20,<4' 'charset-normalizer>=3,<4' \
+        'colorama>=0.4.6,<1' 'Pillow>=10,<13'; then
+        say '扫码依赖安装失败或超过 5 分钟。请检查 PyPI 网络/代理后重试；尚未进入小米登录。' 'QR dependency installation failed or exceeded 5 minutes. Check PyPI connectivity/proxy and retry; Xiaomi login has not started.' >&2
+        return 1
+    fi
+    say '扫码依赖已就绪，正在启动登录程序……' 'QR dependencies are ready; starting the login helper...'
+
 	if [[ -t 0 ]]; then
 		"${version_dir}/.venv/bin/python" "${version_dir}/xiaomi_power.py" --setup-cloud-qr
 	elif [[ -r /dev/tty ]]; then

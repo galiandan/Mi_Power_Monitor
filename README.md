@@ -112,3 +112,7 @@ Power: 83.4 W
 ## 许可证
 
 本项目仅按 GNU GPL 第 3 版授权，详见 [LICENSE](LICENSE)。Go MIoT 通信库是单独的 MIT 许可证依赖。
+
+### 首次扫码安装进度
+
+安装器会分别提示创建 Python 环境、下载扫码依赖、下载 GitHub 扫码工具。扫码只安装 requests、pycryptodome、charset-normalizer、Pillow 和 colorama，不再下载可选 Python LAN 工具的 Git 依赖。创建环境最多 2 分钟，依赖安装最多 5 分钟；Git 下载每步最多 2 分钟。超时会退出并提示检查相应网络，之后可以重新运行安装命令。可选旧版 Python LAN/备份功能仍需手动安装完整 `requirements.txt`。
