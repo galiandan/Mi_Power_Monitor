@@ -225,7 +225,10 @@ for required_file in xiaomi-power xiaomi_power.py requirements.txt; do
 		exit 1
 	fi
 done
-"${candidate_dir}/xiaomi-power" -h >/dev/null
+if ! "${candidate_dir}/xiaomi-power" -h 2>&1 | grep -F -- '-setup-cloud-qr' >/dev/null; then
+    say '发行包不支持内置扫码，请升级到 v1.1.0 或更新版本。' 'This release lacks built-in QR setup; upgrade to v1.1.0 or newer.' >&2
+    exit 1
+fi
 
 version_name="${release_tag}-${expected_checksum:0:12}"
 version_dir="${versions_root}/${version_name}"
@@ -249,53 +252,26 @@ else
 	printf '%s\n' "$expected_checksum" > "${version_dir}/.mi-power-monitor-managed"
 fi
 
-prepare_python_setup() {
-	if ! command -v git >/dev/null 2>&1; then
-		say '二维码配置需要 git。Arch Linux 可运行：sudo pacman -S --needed git' 'QR token setup needs git. On Arch Linux, install it with: sudo pacman -S --needed git' >&2
-		return 1
-	fi
-    if ! command -v timeout >/dev/null 2>&1; then
-        say '缺少 timeout（coreutils），无法限制依赖安装时间。' 'Missing timeout (coreutils), required to bound dependency setup.' >&2
+prepare_native_setup() {
+    say '正在使用内置后端进行米家扫码登录，无需安装 Python 登录依赖。' 'Starting built-in Mi Home QR login; no Python login dependencies needed.'
+    if [[ -t 0 ]]; then
+        "${version_dir}/xiaomi-power" --setup-cloud-qr
+    elif [[ -r /dev/tty ]]; then
+        "${version_dir}/xiaomi-power" --setup-cloud-qr </dev/tty
+    else
+        say '扫码配置需要交互式终端，请在终端中运行安装命令。' 'QR setup requires an interactive terminal; run the installer in a terminal.' >&2
         return 1
     fi
-    if [[ ! -x "${version_dir}/.venv/bin/python" ]]; then
-        say '正在创建扫码所需的 Python 环境（最多 2 分钟）……' 'Creating the QR Python environment (up to 2 minutes)...'
-        if ! timeout --kill-after=5s 120s python3 -m venv "${version_dir}/.venv"; then
-            say 'Python 环境创建失败或超时，请检查 python3-venv/ensurepip 是否可用。' 'Python environment creation failed or timed out; check python3-venv/ensurepip.' >&2
-            return 1
-        fi
-    fi
-    say '正在下载扫码依赖（最多 5 分钟）；下方会显示进度，尚未进入扫码登录。' 'Downloading QR dependencies (up to 5 minutes); progress follows. QR login has not started yet.'
-    # QR extraction needs only these PyPI packages, not the Git-based python-miio
-    # dependency used by the optional legacy Python LAN/backup tools.
-    if ! timeout --kill-after=5s 300s "${version_dir}/.venv/bin/python" -m pip install \
-        --disable-pip-version-check --no-input --no-cache-dir --progress-bar off \
-        --timeout 15 --retries 2 \
-        'requests>=2.32,<3' 'pycryptodome>=3.20,<4' 'charset-normalizer>=3,<4' \
-        'colorama>=0.4.6,<1' 'Pillow>=10,<13'; then
-        say '扫码依赖安装失败或超过 5 分钟。请检查 PyPI 网络/代理后重试；尚未进入小米登录。' 'QR dependency installation failed or exceeded 5 minutes. Check PyPI connectivity/proxy and retry; Xiaomi login has not started.' >&2
-        return 1
-    fi
-    say '扫码依赖已就绪，正在启动登录程序……' 'QR dependencies are ready; starting the login helper...'
-
-	if [[ -t 0 ]]; then
-		"${version_dir}/.venv/bin/python" "${version_dir}/xiaomi_power.py" --setup-cloud-qr
-	elif [[ -r /dev/tty ]]; then
-		"${version_dir}/.venv/bin/python" "${version_dir}/xiaomi_power.py" --setup-cloud-qr </dev/tty
-	else
-		say '二维码配置需要交互式终端，请在终端中重新运行 install.sh。' 'QR setup needs an interactive terminal. Re-run install.sh from a terminal.' >&2
-		return 1
-	fi
 }
 
 config_valid=false
-if config_error="$(python3 "${version_dir}/xiaomi_power.py" --validate-config 2>&1 >/dev/null)"; then
+if config_error="$("${version_dir}/xiaomi-power" --validate-config 2>&1 >/dev/null)"; then
 	config_valid=true
 else
 	say '现有配置缺失或格式无效，将启动二维码配置。旧配置会在新配置成功保存前保留。' 'The existing config is missing or invalid. QR setup will run; the old config stays until a new one is saved.'
 	[[ -z "$config_error" ]] || printf '  %s\n' "$config_error" >&2
-	prepare_python_setup
-	python3 "${version_dir}/xiaomi_power.py" --validate-config >/dev/null
+	prepare_native_setup
+	"${version_dir}/xiaomi-power" --validate-config >/dev/null
 	config_valid=true
 fi
 
@@ -306,8 +282,8 @@ if [[ "$config_valid" == true && -t 0 ]]; then
 		read -r -p 'A valid config exists. Run QR login again? [y/N] ' answer
 	fi
 	if [[ "$answer" =~ ^[Yy]$ ]]; then
-		prepare_python_setup
-		python3 "${version_dir}/xiaomi_power.py" --validate-config >/dev/null
+		prepare_native_setup
+		"${version_dir}/xiaomi-power" --validate-config >/dev/null
 	fi
 else
 	say '设备配置有效，继续使用现有配置。' 'The device config is valid; keeping the existing config.'

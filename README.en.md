@@ -10,7 +10,7 @@ A small LAN reader for live power usage from Xiaomi/Mijia smart plug 3 (`cuco.pl
 curl -fsSL https://raw.githubusercontent.com/galiandan/Mi_Power_Monitor/main/install.sh | bash
 ```
 
-The script downloads the matching Go build, verifies its SHA-256 checksum, recommends QR sign-in on first setup, and installs `~/.local/bin/xiaomi-power`. It tries to open the local QR login page in the default browser and prints the URL for manual opening if needed; scan the QR code in the terminal with Mi Home on your phone and approve the sign-in. Existing device config is reused. If the Xiaomi account has multiple plugs, QR setup lists them for selection by number without printing tokens. Python is only needed during first-time token setup; the Go reader does not depend on Python at runtime.
+The script downloads the matching Go build, verifies its SHA-256 checksum, recommends QR sign-in on first setup, and installs `~/.local/bin/xiaomi-power`. It tries to open the local QR login page in the default browser and prints the URL for manual opening if needed; scan the QR code in the browser page with Mi Home on your phone and approve the sign-in. Existing device config is reused. If the Xiaomi account has multiple plugs, QR setup lists them for selection by number without printing tokens. QR setup and LAN reads use the same Go binary, without a Python venv or downloaded login tool. The installer still uses system Python to validate release archives.
 
 You can inspect the [installer script](install.sh) first. If required system tools are missing, it prints the Arch Linux package command.
 
@@ -106,3 +106,9 @@ The original Python reader was verified against hardware with 30 one-second read
 ## License
 
 Licensed under the GNU General Public License, version 3 only. See [LICENSE](LICENSE). The Go MIoT transport is a separate MIT-licensed dependency.
+
+### Built-in QR login
+
+The Go binary now handles QR login directly with `--setup-cloud-qr`. It asks for a region (default cn), opens a temporary browser page on 127.0.0.1 with a random port/path, and saves only the selected plug configuration with private permissions. No Python environment, pip or external login tool is downloaded. `--region cn --no-browser` prints the local URL without opening a browser. Use `--validate-config` to validate without a LAN request. The KDE command is `mi-power-monitor-backend`; its sensor scripts still use system Python.
+
+The Xiaomi cloud protocol may change. A live QR challenge was retrieved and cancelled; complete account authorization/device discovery remains unverified on a real account. Legacy Python tools remain optional.
